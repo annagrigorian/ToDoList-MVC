@@ -10,6 +10,13 @@ namespace ToDoList.Controllers
 {
     public class HomeController : Controller
     {
+        private readonly ToDoListDbContext _context;
+
+        public HomeController(ToDoListDbContext context)
+        {
+            _context = context;
+        }
+
         public IActionResult Index()
         {
             return View();

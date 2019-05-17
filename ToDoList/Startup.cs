@@ -45,7 +45,7 @@ namespace ToDoList
         public void Configure(IApplicationBuilder app, IHostingEnvironment env,ToDoListDbContext context)
         {
             context.Database.Migrate();
-
+            
             if (env.IsDevelopment())
             {
                 app.UseDeveloperExceptionPage();

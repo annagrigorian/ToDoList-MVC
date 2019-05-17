@@ -10,9 +10,10 @@ namespace ToDoList.Models
     {
         public DbSet<ToDoItem> ToDoItems { get; set; }
 
-      //  public ToDoListDbContext(DbContextOptions<ToDoListDbContext> options)
-      //: base(options)
-      //  { }
+        public ToDoListDbContext(DbContextOptions<ToDoListDbContext> options)
+      : base(options)
+        { }
+
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
