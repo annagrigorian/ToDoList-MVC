@@ -11,6 +11,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using ToDoList.Models;
+using ToDoList.Services;
 
 namespace ToDoList
 {
@@ -26,11 +27,6 @@ namespace ToDoList
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
-            //services.AddDbContext<>(option => option.)
-
-            string connectionString = Configuration.GetConnectionString("DefaultConnection");
-            services.AddDbContext<ToDoListDbContext>(options => options.UseSqlServer(connectionString));
-            
             services.Configure<CookiePolicyOptions>(options =>
             {
                 // This lambda determines whether user consent for non-essential cookies is needed for a given request.
@@ -38,14 +34,19 @@ namespace ToDoList
                 options.MinimumSameSitePolicy = SameSiteMode.None;
             });
 
+            string connectionString = Configuration.GetConnectionString("DefaultConnection");
+            services.AddDbContext<ToDoListDbContext>(options => options.UseSqlServer(connectionString));
+
+            services.AddToDoList();
+
             services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Version_2_2);
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
-        public void Configure(IApplicationBuilder app, IHostingEnvironment env,ToDoListDbContext context)
+        public void Configure(IApplicationBuilder app, IHostingEnvironment env, ToDoListDbContext context)
         {
             context.Database.Migrate();
-            
+
             if (env.IsDevelopment())
             {
                 app.UseDeveloperExceptionPage();

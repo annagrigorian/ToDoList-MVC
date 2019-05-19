@@ -6,25 +6,53 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using ToDoList.Models;
+using ToDoList.Services;
 
 namespace ToDoList.Controllers
 {
     public class ToDoItemsController : Controller
     {
         private readonly ToDoListDbContext _context;
+        private readonly IToDoListService<Guid, string> _toDo;
 
-        public ToDoItemsController(ToDoListDbContext context)
+        public ToDoItemsController(ToDoListDbContext context, IToDoListService<Guid, string> toDo)
         {
             _context = context;
+            _toDo = toDo;
         }
 
         // GET: ToDoItems
-        public async Task<IActionResult> Index()
+        public async Task<IActionResult> Index(string sort)
         {
-            IQueryable<ToDoItem> query = _context.ToDoItems.AsQueryable();           
+            IEnumerable<Item<Guid, string>> items = Enumerable.Empty<Item<Guid, string>>();
+            //IQueryable<ToDoItemViewModel> query = _context.ToDoItems.AsQueryable();
 
-            var result = await query.ToListAsync();
-            return View("Kolkjo");
+            if (sort != null && sort.Trim().ToUpper() == "ASC")
+            {
+                items = await _toDo.GetItemsAsync(OrderBy.TitleAsc);
+                //query = _context.ToDoItems.OrderBy(p => p.Title);
+            }
+
+            if (sort != null && sort.Trim().ToUpper() == "DESC")
+            {
+                items = await _toDo.GetItemsAsync(OrderBy.TitleDesc);
+                //query = _context.ToDoItems.OrderByDescending(p => p.Title);
+            }
+
+            if (sort == null)
+            {
+                items = await _toDo.GetItemsAsync();
+            }
+
+            var result = items.Select(p => new ToDoItemViewModel
+            {
+                Id = p.Id,
+                Color = p.Color,
+                IsCompleted = p.IsCompleted,
+                Title = p.Title
+            });
+
+            return View(result);
         }
 
         // GET: ToDoItems/Details/5
@@ -35,14 +63,19 @@ namespace ToDoList.Controllers
                 return NotFound();
             }
 
-            var toDoItem = await _context.ToDoItems
-                .FirstOrDefaultAsync(m => m.Id == id);
+            var toDoItem = await _toDo.GetItem(id.Value);
             if (toDoItem == null)
             {
                 return NotFound();
             }
 
-            return View(toDoItem);
+            return View(new ToDoItemViewModel
+            {
+                Id = toDoItem.Id,
+                Color = toDoItem.Color,
+                IsCompleted = toDoItem.IsCompleted,
+                Title = toDoItem.Title
+            });
         }
 
         // GET: ToDoItems/Create
@@ -56,13 +89,15 @@ namespace ToDoList.Controllers
         // more details see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create([Bind("Id,Title,IsCompleted,Color")] ToDoItem toDoItem)
+        public async Task<IActionResult> Create([Bind("Title,Color")] ToDoItemCreateModel toDoItem)
         {
             if (ModelState.IsValid)
             {
-                toDoItem.Id = Guid.NewGuid();
-                _context.Add(toDoItem);
-                await _context.SaveChangesAsync();
+                await _toDo.AddAsync(new Item<Guid, string>
+                {
+                    Color = toDoItem.Color,
+                    Title = toDoItem.Title
+                });
                 return RedirectToAction(nameof(Index));
             }
             return View(toDoItem);
@@ -76,12 +111,19 @@ namespace ToDoList.Controllers
                 return NotFound();
             }
 
-            var toDoItem = await _context.ToDoItems.FindAsync(id);
+            var toDoItem = await _toDo.GetItem(id.Value);
             if (toDoItem == null)
             {
                 return NotFound();
             }
-            return View(toDoItem);
+
+            return View(new ToDoItemViewModel
+            {
+                Id = toDoItem.Id,
+                Color = toDoItem.Color,
+                IsCompleted = toDoItem.IsCompleted,
+                Title = toDoItem.Title
+            });
         }
 
         // POST: ToDoItems/Edit/5
@@ -89,7 +131,7 @@ namespace ToDoList.Controllers
         // more details see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(Guid id, [Bind("Id,Title,IsCompleted,Color")] ToDoItem toDoItem)
+        public async Task<IActionResult> Edit(Guid id, [Bind("Id,Title,Completed,Color")] ToDoItemViewModel toDoItem)
         {
             if (id != toDoItem.Id)
             {
@@ -100,8 +142,13 @@ namespace ToDoList.Controllers
             {
                 try
                 {
-                    _context.Update(toDoItem);
-                    await _context.SaveChangesAsync();
+                    await _toDo.EditAsync(new Item<Guid, string>
+                    {
+                        Id = toDoItem.Id,
+                        Color = toDoItem.Color,
+                        Title = toDoItem.Title,
+                        IsCompleted = toDoItem.IsCompleted
+                    });
                 }
                 catch (DbUpdateConcurrencyException)
                 {
@@ -127,14 +174,20 @@ namespace ToDoList.Controllers
                 return NotFound();
             }
 
-            var toDoItem = await _context.ToDoItems
-                .FirstOrDefaultAsync(m => m.Id == id);
+            var toDoItem = await _toDo.GetItem(id.Value);
+
             if (toDoItem == null)
             {
                 return NotFound();
             }
 
-            return View(toDoItem);
+            return View(new ToDoItemViewModel
+            {
+                Id = toDoItem.Id,
+                Color = toDoItem.Color,
+                IsCompleted = toDoItem.IsCompleted,
+                Title = toDoItem.Title
+            });
         }
 
         // POST: ToDoItems/Delete/5
@@ -142,8 +195,8 @@ namespace ToDoList.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(Guid id)
         {
-            var toDoItem = await _context.ToDoItems.FindAsync(id);
-            _context.ToDoItems.Remove(toDoItem);
+            var toDoItem = await _toDo.GetItem(id);
+            await _toDo.DeleteAsync(toDoItem);
             await _context.SaveChangesAsync();
             return RedirectToAction(nameof(Index));
         }
